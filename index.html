@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traffic Monitor - Flood Ping Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .live {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: blink 1.5s infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-value {
+            font-size: 42px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-unit {
+            font-size: 16px;
+            color: #999;
+        }
+
+        .command-box {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .command {
+            background: #2d3748;
+            color: #68d391;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+            overflow-x: auto;
+            margin-top: 15px;
+            position: relative;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .copy-btn:hover {
+            background: #5568d3;
+        }
+
+        .controls {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            margin: 10px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-reset {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-reset:hover {
+            background: #dc2626;
+            transform: scale(1.05);
+        }
+
+        .chart-container {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        canvas {
+            max-width: 100%;
+        }
+
+        .log-container {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            padding: 12px;
+            border-left: 4px solid #667eea;
+            margin-bottom: 10px;
+            background: #f7fafc;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+
+        .timestamp {
+            color: #999;
+            font-size: 12px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🚀 Traffic Monitor</h1>
+            <p style="color: #666; margin-top: 10px;">Real-time Flood Ping Statistics</p>
+            <div style="margin-top: 15px;">
+                <span class="live"></span>
+                <span style="color: #10b981; font-weight: bold;">LIVE</span>
+            </div>
+            <div style="margin-top: 15px; background: #f0f0f0; padding: 10px; border-radius: 8px; font-family: monospace;">
+                <strong>Your URL:</strong> <span id="currentUrl"></span>
+            </div>
+        </div>
+
+        <!-- Statistics Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">📨</div>
+                <div class="stat-label">Total Requests</div>
+                <div class="stat-value" id="totalRequests">0</div>
+                <div class="stat-unit">requests</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">💾</div>
+                <div class="stat-label">Data Transferred</div>
+                <div class="stat-value" id="totalData">0</div>
+                <div class="stat-unit">MB</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">⚡</div>
+                <div class="stat-label">Requests/Second</div>
+                <div class="stat-value" id="reqPerSec">0</div>
+                <div class="stat-unit">req/s</div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">⏱️</div>
+                <div class="stat-label">Duration</div>
+                <div class="stat-value" id="duration">0</div>
+                <div class="stat-unit">seconds</div>
+            </div>
+        </div>
+
+        <!-- Command Box -->
+        <div class="command-box">
+            <h3 style="color: #333; margin-bottom: 10px;">📋 MikroTik Command</h3>
+            <p style="color: #666; margin-bottom: 10px;">Copy and paste this command in your MikroTik Terminal:</p>
+            <div class="command">
+                <button class="copy-btn" onclick="copyCommand()">📋 Copy</button>
+                <span id="commandText">/tool flood-ping [YOUR-DOMAIN] count=10000 size=1000</span>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+            <h3 style="color: #333; margin-bottom: 15px;">⚙️ Controls</h3>
+            <button class="btn btn-reset" onclick="resetStats()">🗑️ Reset Statistics</button>
+        </div>
+
+        <!-- Chart -->
+        <div class="chart-container">
+            <h3 style="color: #333; margin-bottom: 15px;">📊 Traffic Graph</h3>
+            <canvas id="trafficChart"></canvas>
+        </div>
+
+        <!-- Logs -->
+        <div class="log-container">
+            <h3 style="color: #333; margin-bottom: 15px;">📝 Activity Log</h3>
+            <div id="logEntries"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Configuration
+        const STORAGE_KEY = 'floodPingStats';
+        let stats = {
+            requests: 0,
+            bytes: 0,
+            startTime: Date.now(),
+            lastUpdate: Date.now()
+        };
+
+        // Chart setup
+        const ctx = document.getElementById('trafficChart').getContext('2d');
+        let chartData = {
+            labels: [],
+            requests: [],
+            bandwidth: []
+        };
+
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartData.labels,
+                datasets: [
+                    {
+                        label: 'Requests/sec',
+                        data: chartData.requests,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        yAxisID: 'y'
+                    },
+                    {
+                        label: 'Bandwidth (KB/s)',
+                        data: chartData.bandwidth,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left'
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        grid: {
+                            drawOnChartArea: false
+                        }
+                    }
+                }
+            }
+        });
+
+        // Display current URL
+        document.getElementById('currentUrl').textContent = window.location.href;
+        document.getElementById('commandText').textContent = 
+            `/tool flood-ping ${window.location.hostname} count=10000 size=1000`;
+
+        // Copy command function
+        function copyCommand() {
+            const text = document.getElementById('commandText').textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = document.querySelector('.copy-btn');
+                btn.textContent = '✅ Copied!';
+                setTimeout(() => {
+                    btn.textContent = '📋 Copy';
+                }, 2000);
+            });
+        }
+
+        // Add log entry
+        function addLog(message, type = 'info') {
+            const logContainer = document.getElementById('logEntries');
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerHTML = `<span class="timestamp">[${time}]</span> ${message}`;
+            logContainer.insertBefore(entry, logContainer.firstChild);
+            
+            // Keep only last 20 entries
+            while (logContainer.children.length > 20) {
+                logContainer.removeChild(logContainer.lastChild);
+            }
+        }
+
+        // Load stats from localStorage
+        function loadStats() {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+                stats = JSON.parse(saved);
+            }
+        }
+
+        // Save stats to localStorage
+        function saveStats() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+        }
+
+        // Simulate incoming traffic (since we can't receive actual pings in HTML)
+        // In real scenario, you'd use PHP/Node.js backend
+        function simulateTraffic() {
+            // Simulate random traffic
+            const increment = Math.floor(Math.random() * 50) + 10;
+            const bytesIncrement = increment * (Math.random() * 1000 + 500);
+            
+            stats.requests += increment;
+            stats.bytes += bytesIncrement;
+            stats.lastUpdate = Date.now();
+            
+            saveStats();
+            updateDisplay();
+        }
+
+        // Update display
+        function updateDisplay() {
+            // Calculate duration
+            const duration = Math.floor((Date.now() - stats.startTime) / 1000);
+            
+            // Calculate requests per second
+            const reqPerSec = duration > 0 ? (stats.requests / duration).toFixed(2) : 0;
+            
+            // Update stats cards
+            document.getElementById('totalRequests').textContent = stats.requests.toLocaleString();
+            document.getElementById('totalData').textContent = (stats.bytes / (1024 * 1024)).toFixed(2);
+            document.getElementById('reqPerSec').textContent = reqPerSec;
+            document.getElementById('duration').textContent = duration;
+
+            // Update chart
+            const time = new Date().toLocaleTimeString();
+            chartData.labels.push(time);
+            chartData.requests.push(reqPerSec);
+            chartData.bandwidth.push((stats.bytes / duration / 1024).toFixed(2));
+
+            if (chartData.labels.length > 30) {
+                chartData.labels.shift();
+                chartData.requests.shift();
+                chartData.bandwidth.shift();
+            }
+
+            chart.update('none');
+        }
+
+        // Reset statistics
+        function resetStats() {
+            if (confirm('Are you sure you want to reset all statistics?')) {
+                stats = {
+                    requests: 0,
+                    bytes: 0,
+                    startTime: Date.now(),
+                    lastUpdate: Date.now()
+                };
+                chartData.labels = [];
+                chartData.requests = [];
+                chartData.bandwidth = [];
+                saveStats();
+                updateDisplay();
+                addLog('📊 Statistics reset');
+            }
+        }
+
+        // Initialize
+        loadStats();
+        updateDisplay();
+        addLog('✅ Traffic monitor initialized and ready');
+        addLog('⏳ Waiting for flood ping from MikroTik...');
+
+        // Simulate traffic every 1 second (for demo)
+        // Remove this in production with real backend
+        setInterval(simulateTraffic, 1000);
+
+        // Update display every second
+        setInterval(updateDisplay, 1000);
+
+        // Log periodic updates
+        setInterval(() => {
+            if (stats.requests > 0) {
+                addLog(`📈 Total: ${stats.requests} requests, ${(stats.bytes / (1024 * 1024)).toFixed(2)} MB`);
+            }
+        }, 10000);
+    </script>
+</body>
+</html>
